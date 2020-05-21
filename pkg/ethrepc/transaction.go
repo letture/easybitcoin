@@ -18,6 +18,8 @@ type TransferData struct {
 	fromAddress string
 	privKey     string
 	toAddress   string
+	tokenAddress string
+	amount  	float64
 }
 
 // 查询区块高度
@@ -31,6 +33,25 @@ func GetBlockNumber() uint64 {
 	return block.Number().Uint64()
 }
 
+// 获取nonce
+func getNonce(address common.Address) uint64 {
+	nonce, err := client.PendingNonceAt(context.Background(), address)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return  nonce
+}
+
+// 获取燃气费
+func getGasPrice() *big.Int{
+	gasPrice, err := client.SuggestGasPrice(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+	return gasPrice
+}
+
+// 转账
 func Transfer(transferDate TransferData) {
 	fromAddress := common.HexToAddress(transferDate.fromAddress)
 	privateKey, err := crypto.HexToECDSA(transferDate.privKey)
@@ -38,21 +59,15 @@ func Transfer(transferDate TransferData) {
 		log.Fatal(err)
 	}
 
-	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
-	if err != nil {
-		log.Fatal(err)
-	}
+	nonce := getNonce(fromAddress)
 
 	toAddress := common.HexToAddress(transferDate.toAddress)
 
-	value := big.NewInt(3 * params.Ether)
+	amount := int64(transferDate.amount * params.Ether)
+	value := big.NewInt(amount)
 
 	gasLimit := uint64(21000) // in units
-	gasPrice, err := client.SuggestGasPrice(context.Background())
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	gasPrice := getGasPrice()
 	var data []byte
 	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, data)
 
@@ -77,23 +92,20 @@ func Transfer(transferDate TransferData) {
 	// 变更状态
 }
 
-func Transfer_token() {
+func TransferToken(transferDate TransferData) {
 
-	fromAddress := common.HexToAddress("0xb7D96b41CD1Ef5d0703c01b46D2c88Bf7EC5Bb4a")
-	privateKey, err := crypto.HexToECDSA("b7b8fd039d3d3bd2508cbe57c804067d2fd4d12e543b4aa0756b565f11f6b7fe")
-	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
+	fromAddress := common.HexToAddress(transferDate.fromAddress)
+	privateKey, err := crypto.HexToECDSA(transferDate.privKey)
 	if err != nil {
 		log.Fatal(err)
 	}
+	nonce := getNonce(fromAddress)
 
 	value := big.NewInt(0) // in wei (0 eth)
-	gasPrice, err := client.SuggestGasPrice(context.Background())
-	if err != nil {
-		log.Fatal(err)
-	}
+	gasPrice := getGasPrice()
 
-	toAddress := common.HexToAddress("0x4592d8f8d7b001e72cb26a73e4fa1806a51ac79d")
-	tokenAddress := common.HexToAddress("0x28b149020d2152179873ec60bed6bf7cd705775d")
+	toAddress := common.HexToAddress(transferDate.toAddress)
+	tokenAddress := common.HexToAddress(transferDate.tokenAddress)
 
 	transferFnSignature := []byte("transfer(address,uint256)")
 	hash := sha3.NewLegacyKeccak256()
@@ -104,7 +116,7 @@ func Transfer_token() {
 	paddedAddress := common.LeftPadBytes(toAddress.Bytes(), 32)
 
 	amount := new(big.Int)
-	amount.SetString("1000000000000000000000", 10) // sets the value to 1000 tokens, in the token denomination
+	amount.SetString("1000000000000000", 18) // sets the value to 1000 tokens, in the token denomination
 
 	paddedAmount := common.LeftPadBytes(amount.Bytes(), 32)
 	fmt.Println(hexutil.Encode(paddedAmount)) // 0x00000000000000000000000000000000000000000000003635c9adc5dea00000
@@ -140,5 +152,5 @@ func Transfer_token() {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("tx sent: %s", signedTx.Hash().Hex())
+	//fmt.Printf("tx sent: %s", signedTx.Hash().Hex())
 }
